@@ -1,0 +1,60 @@
+import argparse
+from pathlib import Path
+
+import joblib
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+
+from rules_engine import classify_metabolizer
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data", default="data/sample_genotypes.csv")
+    ap.add_argument("--outdir", default="reports/figures")
+    args = ap.parse_args()
+
+    df = pd.read_csv(args.data)
+    df["label"] = df.apply(
+        lambda r: classify_metabolizer(int(r["rs4244285"]), int(r["rs12248560"]), int(r["rs4986893"])),
+        axis=1
+    )
+
+    X = df[["rs4244285", "rs12248560", "rs4986893"]].to_numpy(dtype=np.int64)
+    y = df["label"].to_numpy()
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    models = {
+        "logreg": LogisticRegression(max_iter=200),
+        "rf": RandomForestClassifier(n_estimators=200, random_state=42),
+    }
+
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    for name, model in models.items():
+        model.fit(X_train, y_train)
+        joblib.dump(model, f"models/{name}_model.joblib")
+        preds = model.predict(X_test)
+
+        print(f"\n=== {name} ===")
+        #print(classification_report(y_test, preds))
+        print(classification_report(y_test, preds, zero_division=0))
+
+
+        disp = ConfusionMatrixDisplay.from_predictions(y_test, preds, xticks_rotation=45)
+        plt.title(f"Confusion Matrix - {name}")
+        plt.savefig(outdir / f"confusion_{name}.png", dpi=200, bbox_inches="tight")
+        plt.close()
+
+
+if __name__ == "__main__":
+    main()

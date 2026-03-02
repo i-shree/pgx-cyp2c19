@@ -1,0 +1,16 @@
+# Ignore everything inside these folders
+data/raw/*
+reports/figures/*
+*.notes
+
+# But keep the folders themselves
+!data/raw/.gitkeep
+!reports/figures/.gitkeep
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+venv/
